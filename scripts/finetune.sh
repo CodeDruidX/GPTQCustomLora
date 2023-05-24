@@ -1,5 +1,5 @@
 python qlora.py \
-    --model_name_or_path EleutherAI/pythia-12b \
+    --model_path ./llama-7b/ \
     --output_dir ./output \
     --dataset alpaca \
     --do_train True \
