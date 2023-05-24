@@ -28,6 +28,7 @@ pip install git+https://github.com/huggingface/transformers.git
 pip install git+https://github.com/qwopqwop200/peft.git
 pip install git+https://github.com/huggingface/accelerate.git
 pip install -r requirements.txt
+pip install protobuf==3.20.*
 ```
 
 ## Getting Started
