@@ -33,10 +33,13 @@ You can access [the model response Colab here](https://colab.research.google.com
 ## Installation
 To load models in 4bits with transformers and bitsandbytes, you have to install accelerate and transformers from source and make sure you have the latest version of the bitsandbytes library (0.39.0). You can achieve the above with the following commands:
 ```bash
-pip install -q -U bitsandbytes
-pip install -q -U git+https://github.com/huggingface/transformers.git
-pip install -q -U git+https://github.com/huggingface/peft.git
-pip install -q -U git+https://github.com/huggingface/accelerate.git
+git clone https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ
+pip install .[triton]
+cd ..
+pip install bitsandbytes
+pip install git+https://github.com/huggingface/transformers.git
+pip install git+https://github.com/qwopqwop200/peft.git
+pip install git+https://github.com/huggingface/accelerate.git
 ```
 
 ## Getting Started
