@@ -32,6 +32,12 @@ For models larger than 13B, we recommend adjusting the learning rate:
 python qlora.py –learning_rate 0.0001 --model_path <path>
 ```
 
+The file structure of the model checkpoint is as follows:
+```
+(bnb) root@/root/qlora-main# ls llama-7b/
+config.json             gptq_model-4bit-128g.bin  special_tokens_map.json  tokenizer_config.json
+generation_config.json  quantize_config.json      tokenizer.model
+```
 ## Quantization
 Quantization is based on AutoGPTQ. Also, to run the code, you first need a model converted to GPTQ.
 
@@ -43,8 +49,9 @@ Here a list of known issues and bugs. If your issue is not reported here, please
 
 1. Resuming a LoRA training run with the Trainer currently runs on an error
 2. Make sure that `tokenizer.bos_token_id = 1` to avoid generation issues.
+3. Sometimes the loss is 0.0 in the first output. In this case you need to rerun the code.
 
 ## Acknoledgements
-We thank the Huggingface team, in particular Younes Belkada, for their support integrating QLoRA with PEFT and transformers libraries.
+This code is based on [QLoRA](https://github.com/artidoro/qlora).
 
 This repo builds on the [Stanford Alpaca](https://github.com/tatsu-lab/stanford_alpaca) and [LMSYS FastChat](https://github.com/lm-sys/FastChat) repos.
