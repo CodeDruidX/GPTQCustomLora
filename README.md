@@ -5,7 +5,7 @@
 [QLoRA](https://arxiv.org/abs/2305.14314) with [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) for quantization
 
 ## License and Intended Use
-I release the resources associated with QLoRA finetuning in this repository under MIT license.
+I release the resources associated with GPTQLoRA finetuning in this repository under MIT license.
 
 ## Installation
 ```bash
