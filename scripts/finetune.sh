@@ -1,4 +1,4 @@
-python qlora.py \
+python gptqlora.py \
     --model_path ./llama-7b/ \
     --output_dir ./output \
     --dataset alpaca \
