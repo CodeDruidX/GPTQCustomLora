@@ -8,7 +8,7 @@
 I release the resources associated with QLoRA finetuning in this repository under MIT license.
 
 ## Installation
-To load models in 4bits with transformers and bitsandbytes, you have to install accelerate and transformers from source and make sure you have the latest version of the bitsandbytes library (0.39.0). You can achieve the above with the following commands:
+To load models in 4bits with [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ), you have to install accelerate and transformers from source and make sure you have the latest version of the bitsandbytes library (0.39.0). You can achieve the above with the following commands:
 ```bash
 conda create -n gptqlora python=3.8
 conda activate gptqlora
