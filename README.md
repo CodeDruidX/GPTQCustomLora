@@ -33,27 +33,7 @@ python qlora.py –learning_rate 0.0001 --model_path <path>
 ```
 
 ## Quantization
-Quantization parameters are controlled from the `BitsandbytesConfig` ([see HF documenation](https://huggingface.co/docs/transformers/main_classes/quantization#transformers.BitsAndBytesConfig)) as follows:
-- Loading in 4 bits is activated through `load_in_4bit`
-- The datatype used for the linear layer computations with `bnb_4bit_compute_dtype`
-- Nested quantization is activated through `bnb_4bit_use_double_quant`
-- The datatype used for qunatization is specified with `bnb_4bit_quant_type`. Note that there are two supported quantization datatypes `fp4` (four bit float) and `nf4` (normal four bit float). The latter is theoretically optimal for normally distributed weights and we recommend using `nf4`.
-
-```python
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name_or_path='/name/or/path/to/your/model',
-        load_in_4bit=True,
-        device_map='auto',
-        max_memory=max_memory,
-        torch_dtype=torch.bfloat16,
-        quantization_config=BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type='nf4'
-        ),
-    )
-```
+Quantization is based on AutoGPTQ. Also, to run the code, you first need a model converted to GPTQ.
 
 ## Paged Optimizer
 You can access the paged optimizer with the argument `--optim paged_adamw_32bit`
