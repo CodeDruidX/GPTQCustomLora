@@ -12,7 +12,6 @@ from typing import Optional, Dict, Sequence
 import numpy as np
 from tqdm import tqdm
 import logging
-import bitsandbytes as bnb
 
 import torch
 import transformers
@@ -23,14 +22,12 @@ from transformers import (
     AutoModelForCausalLM, 
     set_seed, 
     Seq2SeqTrainer,
-    BitsAndBytesConfig
 )
 from datasets import load_dataset
 import evaluate
 import nltk
 
 from peft import (
-    prepare_model_for_int8_training,
     LoraConfig,
     get_peft_model,
     get_peft_model_state_dict,
@@ -39,6 +36,8 @@ from peft import (
 from peft.tuners.lora import LoraLayer
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
+from auto_gptq import AutoGPTQForCausalLM
+from auto_gptq.nn_modules.qlinear_triton import QuantLinear
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -47,10 +46,43 @@ logger = logging.getLogger(__name__)
 IGNORE_INDEX = -100
 DEFAULT_PAD_TOKEN = "[PAD]"
 
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+def prepare_model_for_int8_training(model, use_gradient_checkpointing=True):
+    r"""
+    This method wraps the entire protocol for preparing a model before running a training. This includes:
+        1- Cast the layernorm in fp32 2- making output embedding layer require grads 3- Add the upcasting of the lm
+        head to fp32
+
+    Args:
+        model, (`transformers.PreTrainedModel`):
+            The loaded model from `transformers`
+    """
+    for name, param in model.named_parameters():
+        # freeze base model's layers
+        param.requires_grad = False
+        
+    if use_gradient_checkpointing:
+        # For backward compatibility
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        else:
+
+            def make_inputs_require_grad(module, input, output):
+                output.requires_grad_(True)
+
+            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+        # enable gradient checkpointing for memory efficiency
+        model.gradient_checkpointing_enable()
+
+    return model
+
 @dataclass
 class ModelArguments:
-    model_name_or_path: Optional[str] = field(
-        default="EleutherAI/pythia-12b"
+    model_path: Optional[str] = field(
+        default="./llama-7b/"
     )
     trust_remote_code: Optional[bool] = field(
         default=False,
@@ -126,18 +158,6 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
         default=False,
         metadata={"help": "Use 8-bit adam."}
     )
-    double_quant: bool = field(
-        default=True,
-        metadata={"help": "Compress the quantization statistics through double quantization."}
-    )
-    quant_type: str = field(
-        default="nf4",
-        metadata={"help": "Quantization data type to use. Should be one of `fp4` or `nf4`."}
-    )
-    bits: int = field(
-        default=4,
-        metadata={"help": "How many bits to use."}
-    )
     lora_r: int = field(
         default=64,
         metadata={"help": "Lora R dimension."}
@@ -151,7 +171,7 @@ class TrainingArguments(transformers.Seq2SeqTrainingArguments):
         metadata={"help":"Lora dropout."}
     )
     max_memory_MB: int = field(
-        default=80000,
+        default=24000,
         metadata={"help": "Free memory per gpu."}
     )
     report_to: str = field(
@@ -210,7 +230,7 @@ class GenerationArguments:
     no_repeat_ngram_size: Optional[int] = field(default=0) 
 
 def find_all_linear_names(args, model):
-    cls = bnb.nn.Linear4bit if args.bits == 4 else (bnb.nn.Linear8bitLt if args.bits == 8 else torch.nn.Linear)
+    cls = QuantLinear if not(args.full_finetune) else torch.nn.Linear
     lora_module_names = set()
     for name, module in model.named_modules():
         if isinstance(module, cls):
@@ -258,32 +278,19 @@ def get_accelerate_model(args, checkpoint_dir):
 
     if args.full_finetune: assert args.bits in [16, 32]
 
-    print(f'loading base model {args.model_name_or_path}...')
-    compute_dtype = (torch.float16 if args.fp16 else (torch.bfloat16 if args.bf16 else torch.float32))
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name_or_path,
-        load_in_4bit=args.bits == 4,
-        load_in_8bit=args.bits == 8,
+    print(f'loading base model {args.model_path}...')
+    model = AutoGPTQForCausalLM.from_quantized(
+        args.model_path,
         device_map='auto',
         max_memory=max_memory,
-        quantization_config=BitsAndBytesConfig(
-            load_in_4bit=args.bits == 4,
-            load_in_8bit=args.bits == 8,
-            llm_int8_threshold=6.0,
-            llm_int8_has_fp16_weight=False,
-            bnb_4bit_compute_dtype=compute_dtype,
-            bnb_4bit_use_double_quant=args.double_quant,
-            bnb_4bit_quant_type=args.quant_type # {'fp4', 'nf4'}
-        ),
-        torch_dtype=(torch.float32 if args.fp16 else (torch.bfloat16 if args.bf16 else torch.float32)),
         trust_remote_code=args.trust_remote_code,
+        inject_fused_attention = False,
+        inject_fused_mlp = False,
+        use_triton=True
     )
-    if compute_dtype == torch.float16 and args.bits == 4:
-        major, minor = torch.cuda.get_device_capability()
-        if major >= 8:
-            print('='*80)
-            print('Your GPU supports bfloat16, you can accelerate training with the argument --bf16')
-            print('='*80)
+    model.model.quantize_config = model.quantize_config
+    model = model.model
+    model.train()
 
     setattr(model, 'model_parallel', True)
     setattr(model, 'is_parallelizable', True)
@@ -346,7 +353,10 @@ def print_trainable_parameters(args, model):
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-    if args.bits == 4: trainable_params /= 2
+    try:
+        trainable_params /= (32//model.quantize_config.bits)
+    except:
+        pass
     print(f"trainable params: {trainable_params} || all params: {all_param} || trainable: {100 * trainable_params / all_param}")
 
 def smart_tokenizer_and_embedding_resize(
@@ -597,7 +607,7 @@ def train():
 
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name_or_path,
+        args.model_path,
         cache_dir=args.cache_dir,
         padding_side="right",
         use_fast=True,
@@ -608,7 +618,7 @@ def train():
             tokenizer=tokenizer,
             model=model,
         )
-    if any(key in args.model_name_or_path for key in ['llama', '7B', '13B', '30B', '65B']):
+    if any(key in args.model_path for key in ['llama', '7B', '13B', '30B', '65B']):
         # LLaMA tokenizer does not have special tokens set.
         # Add them to prevent them from being parsed into different tokens.
         # Note that these are present in the vocabulary. 
@@ -708,7 +718,7 @@ def train():
     for k, v in dtypes.items():
         print(k, v, v/total)
 
-    if args.bits < 16:
+    if not(args.full_finetune):
         old_state_dict = model.state_dict
         model.state_dict = (
             lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())
