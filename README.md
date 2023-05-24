@@ -2,34 +2,44 @@
 
 # GPTQLoRA: Efficient Finetuning of Quantized LLMs with GPTQ
 
-QLoRA uses [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) for quantization
+[QLoRA](https://arxiv.org/abs/2305.14314) with [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) for quantization
 
 ## License and Intended Use
-We release the resources associated with QLoRA finetuning in this repository under MIT license.
+I release the resources associated with QLoRA finetuning in this repository under MIT license.
 
 ## Installation
 To load models in 4bits with transformers and bitsandbytes, you have to install accelerate and transformers from source and make sure you have the latest version of the bitsandbytes library (0.39.0). You can achieve the above with the following commands:
 ```bash
+conda create -n gptqlora python=3.8
+conda activate gptqlora
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
 git clone https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ
 pip install .[triton]
 cd ..
-pip install -r requirements.txt
-pip install bitsandbytes
+git clone https://github.com/timdettmers/bitsandbytes.git
+cd bitsandbytes
+# CUDA_VERSIONS in {110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 120}
+# make argument in {cuda110, cuda11x, cuda12x}
+# if you do not know what CUDA you have, try looking at the output of: python -m bitsandbytes
+CUDA_VERSION=117 make cuda11x
+python setup.py install
+cd ..
 pip install git+https://github.com/huggingface/transformers.git
 pip install git+https://github.com/qwopqwop200/peft.git
 pip install git+https://github.com/huggingface/accelerate.git
+pip install -r requirements.txt
 ```
 
 ## Getting Started
-The `qlora.py` code is a starting point for finetuning and inference on various datasets.
+The `gptqlora.py` code is a starting point for finetuning and inference on various datasets.
 Basic command for finetuning a baseline model on the Alpaca dataset:
 ```bash
-python qlora.py --model_path <path>
+python gptqlora.py --model_path <path>
 ```
 
 For models larger than 13B, we recommend adjusting the learning rate:
 ```bash
-python qlora.py –learning_rate 0.0001 --model_path <path>
+python gptqlora.py –learning_rate 0.0001 --model_path <path>
 ```
 
 The file structure of the model checkpoint is as follows:
