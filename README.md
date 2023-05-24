@@ -1,5 +1,3 @@
-
-
 # GPTQLoRA: Efficient Finetuning of Quantized LLMs with GPTQ
 
 [QLoRA](https://arxiv.org/abs/2305.14314) with [AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) for quantization
@@ -48,6 +46,9 @@ The file structure of the model checkpoint is as follows:
 config.json             gptq_model-4bit-128g.bin  special_tokens_map.json  tokenizer_config.json
 generation_config.json  quantize_config.json      tokenizer.model
 ```
+
+**Sometimes the loss is 0.0 in the first output. In this case you need to rerun the code.**
+
 ## Quantization
 Quantization is based on AutoGPTQ. Also, to run the code, you first need a model converted to GPTQ.
 
