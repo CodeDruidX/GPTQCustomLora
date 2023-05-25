@@ -683,7 +683,9 @@ def train():
                         logit_abcd = logit[label_non_zero_id-1][abcd_idx]
                         preds.append(torch.argmax(logit_abcd).item())
                     labels = labels[labels != IGNORE_INDEX].view(-1, 2)[:,0]
-                    refs += [abcd_idx.index(label) for label in labels.tolist()]
+                    for label in labels.tolist():
+                        if label in abcd_idx:
+                            refs += [abcd_idx.index(label)]
                     
                     loss_mmlu += loss.item()
                 # Extract results by subject.
