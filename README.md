@@ -10,7 +10,7 @@ I release the resources associated with GPTQLoRA finetuning in this repository u
 conda create -n gptqlora python=3.8
 conda activate gptqlora
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
-git clone https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ
+git clone -b peft_integration https://github.com/PanQiWei/AutoGPTQ.git && cd AutoGPTQ
 pip install .[triton]
 cd ..
 git clone https://github.com/timdettmers/bitsandbytes.git
@@ -22,7 +22,7 @@ CUDA_VERSION=117 make cuda11x
 python setup.py install
 cd ..
 pip install git+https://github.com/huggingface/transformers.git
-pip install git+https://github.com/qwopqwop200/peft.git
+pip install git+https://github.com/huggingface/peft.git
 pip install git+https://github.com/huggingface/accelerate.git
 pip install -r requirements.txt
 pip install protobuf==3.20.*
