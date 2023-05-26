@@ -29,15 +29,14 @@ import nltk
 
 from peft import (
     LoraConfig,
-    get_peft_model,
     get_peft_model_state_dict,
     PeftModel
 )
 from peft.tuners.lora import LoraLayer
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
-
+from auto_gptq.utils.peft_utils import get_gptq_peft_model
 from auto_gptq import AutoGPTQForCausalLM
-from auto_gptq.nn_modules.qlinear_triton import QuantLinear
+from auto_gptq.nn_modules.qlinear import GeneralQuantLinear
 
 torch.backends.cuda.matmul.allow_tf32 = True
 
@@ -230,7 +229,7 @@ class GenerationArguments:
     no_repeat_ngram_size: Optional[int] = field(default=0) 
 
 def find_all_linear_names(args, model):
-    cls = QuantLinear if not(args.full_finetune) else torch.nn.Linear
+    cls = GeneralQuantLinear if not(args.full_finetune) else torch.nn.Linear
     lora_module_names = set()
     for name, module in model.named_modules():
         if isinstance(module, cls):
@@ -286,10 +285,10 @@ def get_accelerate_model(args, checkpoint_dir):
         trust_remote_code=args.trust_remote_code,
         inject_fused_attention = False,
         inject_fused_mlp = False,
-        use_triton=True
+        use_triton=True,
+        warmup_triton=False
     )
     model.model.quantize_config = model.quantize_config
-    model = model.model
     model.train()
 
     setattr(model, 'model_parallel', True)
@@ -320,7 +319,7 @@ def get_accelerate_model(args, checkpoint_dir):
                     print(name, p.sum())
         else:
             print(f'adding LoRA modules...')
-            model = get_peft_model(model, config)
+            model = get_gptq_peft_model(model, config)
 
     if args.gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
