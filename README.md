@@ -47,8 +47,6 @@ config.json             gptq_model-4bit-128g.bin  special_tokens_map.json  token
 generation_config.json  quantize_config.json      tokenizer.model
 ```
 
-**Sometimes the loss is 0.0 in the first output. In this case you need to rerun the code.**
-
 ## Quantization
 Quantization is based on AutoGPTQ. Also, to run the code, you first need a model converted to GPTQ.
 
@@ -60,7 +58,6 @@ Here a list of known issues and bugs. If your issue is not reported here, please
 
 1. Resuming a LoRA training run with the Trainer currently runs on an error
 2. Make sure that `tokenizer.bos_token_id = 1` to avoid generation issues.
-3. Sometimes the loss is 0.0 in the first output. In this case you need to rerun the code.
 
 ## Acknoledgements
 This code is based on [QLoRA](https://github.com/artidoro/qlora).
