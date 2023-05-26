@@ -28,7 +28,6 @@ import evaluate
 import nltk
 
 from peft import (
-    prepare_model_for_int8_training,
     LoraConfig,
     get_peft_model_state_dict,
     PeftModel
@@ -48,6 +47,36 @@ DEFAULT_PAD_TOKEN = "[PAD]"
 
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+def prepare_model_for_int8_training(model, use_gradient_checkpointing=True):
+    r"""
+    This method wraps the entire protocol for preparing a model before running a training. This includes:
+        1- Cast the layernorm in fp32 2- making output embedding layer require grads 3- Add the upcasting of the lm
+        head to fp32
+
+    Args:
+        model, (`transformers.PreTrainedModel`):
+            The loaded model from `transformers`
+    """
+    for name, param in model.named_parameters():
+        # freeze base model's layers
+        param.requires_grad = False
+        
+    if use_gradient_checkpointing:
+        # For backward compatibility
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        else:
+
+            def make_inputs_require_grad(module, input, output):
+                output.requires_grad_(True)
+
+            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+        # enable gradient checkpointing for memory efficiency
+        model.gradient_checkpointing_enable()
+
+    return model
 
 @dataclass
 class ModelArguments:
