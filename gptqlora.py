@@ -22,10 +22,10 @@ from transformers import (
     AutoModelForCausalLM, 
     set_seed, 
     Seq2SeqTrainer,
+    LlamaTokenizerFast
 )
 from datasets import load_dataset
 import evaluate
-import nltk
 
 from peft import (
     LoraConfig,
@@ -286,7 +286,8 @@ def get_accelerate_model(args, checkpoint_dir):
         inject_fused_attention = False,
         inject_fused_mlp = False,
         use_triton=True,
-        warmup_triton=False
+        warmup_triton=True,
+        trainable=True
     )
     model.model.quantize_config = model.quantize_config
     model.train()
@@ -611,25 +612,27 @@ def train():
         padding_side="right",
         use_fast=True,
     )
+    
     if tokenizer.pad_token is None:
         smart_tokenizer_and_embedding_resize(
             special_tokens_dict=dict(pad_token=DEFAULT_PAD_TOKEN),
             tokenizer=tokenizer,
             model=model,
         )
-    if any(key in args.model_path for key in ['llama', '7B', '13B', '30B', '65B']):
-        # LLaMA tokenizer does not have special tokens set.
-        # Add them to prevent them from being parsed into different tokens.
+        
+    if isinstance(tokenizer, LlamaTokenizerFast):
+        # LLaMA tokenizer may not have correct special tokens set.
+        # Check and add them if missing to prevent them from being parsed into different tokens.
         # Note that these are present in the vocabulary. 
         # Note also that `model.config.pad_token_id` is 0 which corresponds to `<unk>` token.
         tokenizer.add_special_tokens(
             {
                 "eos_token": tokenizer.convert_ids_to_tokens(model.config.eos_token_id),
                 "bos_token": tokenizer.convert_ids_to_tokens(model.config.bos_token_id),
-                "unk_token": tokenizer.convert_ids_to_tokens(model.config.pad_token_id), 
+                "unk_token": tokenizer.convert_ids_to_tokens(model.config.pad_token_id),
             }
         )
-
+    
     data_module = make_data_module(tokenizer=tokenizer, args=args)
     trainer = Seq2SeqTrainer(
         model=model, 
@@ -718,12 +721,6 @@ def train():
     for k, v in dtypes.items(): total+= v
     for k, v in dtypes.items():
         print(k, v, v/total)
-
-    if not(args.full_finetune):
-        old_state_dict = model.state_dict
-        model.state_dict = (
-            lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())
-        ).__get__(model, type(model))
 
     all_metrics = {"run_name": args.run_name}
     # Training
