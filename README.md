@@ -53,12 +53,6 @@ Quantization is based on AutoGPTQ. Also, to run the code, you first need a model
 ## Paged Optimizer
 You can access the paged optimizer with the argument `--optim paged_adamw_32bit`
 
-## Known Issues and Limitations
-Here a list of known issues and bugs. If your issue is not reported here, please open a new issue and describe the problem.
-
-1. Resuming a LoRA training run with the Trainer currently runs on an error
-2. Make sure that `tokenizer.bos_token_id = 1` to avoid generation issues.
-
 ## Acknoledgements
 This code is based on [QLoRA](https://github.com/artidoro/qlora).
 
