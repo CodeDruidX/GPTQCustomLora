@@ -286,7 +286,7 @@ def get_accelerate_model(args, checkpoint_dir):
         inject_fused_attention = False,
         inject_fused_mlp = False,
         use_triton=True,
-        warmup_triton=True,
+        warmup_triton=False,
         trainable=True
     )
     model.model.quantize_config = model.quantize_config
